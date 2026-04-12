@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advanced Fast Terrain Generator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/Vetronuss/lib/lib.js"></script>
+  
+  <style>
+    body { margin: 0; padding: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', Tahoma, sans-serif; }
+    #ui { position: absolute; top: 10px; left: 10px; width: 280px; background: rgba(15, 15, 20, 0.85); color: #ddd; padding: 15px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.9); border: 1px solid #444; max-height: 95vh; overflow-y: auto; }
+    #ui::-webkit-scrollbar { width: 5px; } #ui::-webkit-scrollbar-thumb { background: #666; border-radius: 3px; }
+    h2 { margin: 0 0 10px 0; font-size: 18px; color: #fff; text-align: center; }
+    h3 { margin: 12px 0 5px 0; color: #4CAF50; border-bottom: 1px solid #444; padding-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;}
+    .control-group { margin-bottom: 8px; }
+    .control-group label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; font-weight: bold; }
+    input[type=range] { width: 100%; margin: 0; cursor: pointer; accent-color: #4CAF50; }
+    .checkbox-group { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; cursor: pointer; font-weight: bold;}
+    input[type=checkbox] { width: 15px; height: 15px; margin: 0; cursor: pointer; accent-color: #4CAF50;}
+    .btn-row { display: flex; gap: 8px; margin-top: 10px; }
+    button { flex: 1; padding: 8px; border: none; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s;}
+    .btn-save { background: #4CAF50; color: white; } .btn-save:hover { background: #45a049; }
+    .btn-reset { background: #555; color: white; } .btn-reset:hover { background: #777; }
+    .btn-seed { background: #2196F3; color: white; width: 100%; margin-top: 10px; padding: 10px;} .btn-seed:hover { background: #1e88e5; }
+    .render-box { background: rgba(0,0,0,0.5); padding: 10px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #555;}
+    .btn-render { background: #e91e63; color: white; width: 100%; padding: 10px; font-size: 14px; margin-top: 8px; display: none;} .btn-render:hover { background: #c2185b; }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <h2>Terrain Maker</h2>
+    <div class="render-box">
+      <label class="checkbox-group" style="margin-top:0;"><input type="checkbox" id="autoUpdate" checked> Auto Update (Live)</label>
+      <button class="btn-render" id="btnRender" onclick="forceRender()">⚙️ Render Image Now</button>
+    </div>
+    <button class="btn-seed" onclick="randomizeSeed()">🎲 Randomize Map Seed</button>
+
+    <h3>Noise Settings</h3>
+    <div class="control-group"><label>Cell Size (Res) <span id="v-cellSize">4px</span></label><input type="range" id="cellSize" min="1" max="20" value="4"></div>
+    <div class="control-group"><label>Noise Zoom <span id="v-noiseZoom">0.05</span></label><input type="range" id="noiseZoom" min="0.005" max="2" step="0.001" value="0.9"></div>
+    <div class="control-group"><label>Global Elevation <span id="v-elevation">0</span></label><input type="range" id="elevation" min="-0.5" max="0.5" step="0.01" value="0"></div>
+    <div class="control-group"><label>Terrain Contrast <span id="v-contrast">1.0</span></label><input type="range" id="contrast" min="0.1" max="3.0" step="0.1" value="1.0"></div>
+
+    <h3>Shadows & Details</h3>
+    <label class="checkbox-group" style="margin-bottom: 6px;"><input type="checkbox" id="shading" checked> Enable 3D Shadows</label>
+    <div class="control-group"><label style="color:#ffeb3b">Sun Angle <span id="v-sunAngle">45°</span></label><input type="range" id="sunAngle" min="0" max="360" value="45"></div>
+    <div class="control-group"><label style="color:#ffb300">Sun Elevation <span id="v-sunHeight">0.02</span></label><input type="range" id="sunHeight" min="0.005" max="0.2" step="0.005" value="0.02"></div>
+    <div class="control-group"><label style="color:#b0bec5">Shadow Darkness <span id="v-shadowDarkness">0.4</span></label><input type="range" id="shadowDarkness" min="0.1" max="1.0" step="0.05" value="0.4"></div>
+    <div class="control-group"><label style="color:#ce93d8">Shadow Softness (Blur) <span id="v-shadowBlur">2</span></label><input type="range" id="shadowBlur" min="0" max="10" step="1" value="2"></div>
+    <div class="control-group"><label style="color:#ef9a9a">Shadow Acne Fix (Bias) <span id="v-shadowBias">0.01</span></label><input type="range" id="shadowBias" min="0.0" max="0.05" step="0.001" value="0.01"></div>
+    <div class="control-group"><label style="color:#80cbc4">Diffuse Smoothing <span id="v-diffuseSmooth">2</span></label><input type="range" id="diffuseSmooth" min="1" max="10" step="1" value="2"></div>
+    <label class="checkbox-group"><input type="checkbox" id="waterShadows" checked> Soft Shadows on Water</label>
+    <label class="checkbox-group"><input type="checkbox" id="orbitSun" checked> Orbit Sun (Animation)</label>
+
+    <h3>Biome Thresholds</h3>
+    <div class="control-group"><label style="color:#42a5f5">Deep Water <span id="v-deepWater">20%</span></label><input type="range" id="deepWater" min="0" max="1" step="0.01" value="0.20"></div>
+    <div class="control-group"><label style="color:#64b5f6">Shallow Water <span id="v-shallowWater">40%</span></label><input type="range" id="shallowWater" min="0" max="1" step="0.01" value="0.40"></div>
+    <div class="control-group"><label style="color:#ffd54f">Sand <span id="v-sand">45%</span></label><input type="range" id="sand" min="0" max="1" step="0.01" value="0.45"></div>
+    <div class="control-group"><label style="color:#aed581">Grass <span id="v-grass">60%</span></label><input type="range" id="grass" min="0" max="1" step="0.01" value="0.60"></div>
+    <div class="control-group"><label style="color:#66bb6a">Forest <span id="v-forest">75%</span></label><input type="range" id="forest" min="0" max="1" step="0.01" value="0.75"></div>
+    <div class="control-group"><label style="color:#bdbdbd">Rock <span id="v-rock">90%</span></label><input type="range" id="rock" min="0" max="1" step="0.01" value="0.90"></div>
+
+    <h3>Render Mode</h3>
+    <label class="checkbox-group"><input type="checkbox" id="smoothGradients" checked> Smooth Gradients</label>
+    <label class="checkbox-group"><input type="checkbox" id="animate"> Animate Terrain Z-Axis</label>
+    <label class="checkbox-group"><input type="checkbox" id="islandify"> Islandify</label>
+
+    <div class="btn-row">
+      <button class="btn-save" id="saveBtn" onclick="saveSettings()">Save Settings</button>
+      <button class="btn-reset" onclick="resetSettings()">Reset</button>
+    </div>
+  </div>
+
+  <script src="noise.js"></script> 
+  <script src="render.js"></script> 
+  <script src="main.js"></script>
+</body>
+</html>
