@@ -20,9 +20,10 @@
     input[type=checkbox] { width: 15px; height: 15px; margin: 0; cursor: pointer; accent-color: #4CAF50;}
     .btn-row { display: flex; gap: 8px; margin-top: 10px; }
     button { flex: 1; padding: 8px; border: none; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s;}
-    .btn-save { background: #4CAF50; color: white; } .btn-save:hover { background: #45a049; }
-    .btn-reset { background: #555; color: white; } .btn-reset:hover { background: #777; }
-    .btn-seed { background: #2196F3; color: white; width: 100%; margin-top: 10px; padding: 10px;} .btn-seed:hover { background: #1e88e5; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-save { background: #4CAF50; color: white; } .btn-save:hover:not(:disabled) { background: #45a049; }
+    .btn-reset { background: #555; color: white; } .btn-reset:hover:not(:disabled) { background: #777; }
+    .btn-seed { background: #2196F3; color: white; width: 100%; margin-top: 10px; padding: 10px;} .btn-seed:hover:not(:disabled) { background: #1e88e5; }
     .render-box { background: rgba(0,0,0,0.5); padding: 10px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #555;}
     .btn-render { background: #e91e63; color: white; width: 100%; padding: 10px; font-size: 14px; margin-top: 8px; display: none;} .btn-render:hover { background: #c2185b; }
   </style>
@@ -35,6 +36,56 @@
       <button class="btn-render" id="btnRender" onclick="forceRender()">⚙️ Render Image Now</button>
     </div>
     <button class="btn-seed" onclick="randomizeSeed()">🎲 Randomize Map Seed</button>
+
+    <h3>Map Dimensions</h3>
+    <div style="display:flex; gap:8px; margin-bottom: 8px;">
+      <div style="flex:1"><label style="font-size:10px;font-weight:bold;color:#ccc;display:block;">Width (px)</label><input type="number" id="mapWidth" value="2000" style="width:100%;background:#333;color:#fff;border:1px solid #555;border-radius:4px;padding:4px;box-sizing:border-box;"></div>
+      <div style="flex:1"><label style="font-size:10px;font-weight:bold;color:#ccc;display:block;">Height (px)</label><input type="number" id="mapHeight" value="2000" style="width:100%;background:#333;color:#fff;border:1px solid #555;border-radius:4px;padding:4px;box-sizing:border-box;"></div>
+    </div>
+    <button class="btn-seed" onclick="updateMapSize()" style="margin-top:0; padding:6px; background:#e67e22;">📐 Apply Map Size</button>
+
+    <h3>Region Editor & Tools</h3>
+    <p style="font-size:10px; color:#aaa; margin:0 0 6px 0;">Left-click drag to pan. Right-click drag on map to select. Scroll to zoom.</p>
+    <div class="control-group"><label style="color:#ff7043">Set Height Value <span id="v-regionValue">0.5</span></label><input type="range" id="regionValue" min="0" max="1" step="0.01" value="0.5" oninput="document.getElementById('v-regionValue').innerText=this.value"></div>
+    <div class="btn-row" style="margin-top:6px;">
+      <button class="btn-save" onclick="applyRegionValue()" style="background:#ff7043;">Apply to Pixels</button>
+      <button class="btn-reset" onclick="clearOverrides()">Clear Overrides</button>
+    </div>
+    <button class="btn-seed" onclick="normalizeTerrain()" style="background:#8e44ad; padding: 6px; margin-top:6px;">📊 Normalize Terrain (Full Range)</button>
+
+    <h3>Hydraulic Erosion</h3>
+    
+    <div class="control-group">
+      <label>Water Drop Lifespan <span id="v-erodeLife">40</span></label>
+      <input type="range" id="erodeLife" min="10" max="400" step="1" value="40" oninput="document.getElementById('v-erodeLife').innerText=this.value">
+    </div>
+    <div class="control-group">
+      <label style="color:#2980b9">Erosion Brush Radius <span id="v-erodeRadius">3px</span></label>
+      <input type="range" id="erodeRadius" min="1" max="8" step="1" value="3" oninput="document.getElementById('v-erodeRadius').innerText=this.value+'px'">
+    </div>
+    <div class="control-group">
+      <label>Random Drops Count <span id="v-erodeCount">100k</span></label>
+      <input type="range" id="erodeCount" min="10000" max="1000000" step="10000" value="100000" oninput="document.getElementById('v-erodeCount').innerText=((this.value/1000<1000?this.value/1000+'k':this.value/1000000+'M'))">
+    </div>
+    <div class="control-group">
+      <label style="color:#e74c3c">Soil Hardness (Erode Rate) <span id="v-erodeRate">30%</span></label>
+      <input type="range" id="erodeRate" min="0.05" max="0.5" step="0.05" value="0.3">
+    </div>
+    <div class="control-group">
+      <label style="color:#3498db">Evaporation Rate <span id="v-evapRate">1%</span></label>
+      <input type="range" id="evapRate" min="0.005" max="0.1" step="0.005" value="0.01">
+    </div>
+    <label class="checkbox-group"><input type="checkbox" id="postErosionBlur" checked> Thermal Settling (Smoothing)</label>
+    <label class="checkbox-group"><input type="checkbox" id="erodeSelection" checked> Limit to Selection Area</label>
+    
+    <div class="btn-row">
+      <button class="btn-seed" id="btnErodeRand" onclick="runErosion('random')" style="background:#009688; padding: 6px; margin-top:4px;">💦 Drops (Random)</button>
+      <button class="btn-seed" id="btnErodeAll" onclick="runErosion('all')" style="background:#00796b; padding: 6px; margin-top:4px;">🌧️ Drops (Every Pixel)</button>
+    </div>
+    <div id="erosionProgressContainer" style="display:none; margin-top: 10px; background:rgba(0,0,0,0.5); padding:8px; border-radius:4px; border:1px solid #444;">
+        <label id="erosionStatusText" style="font-size:11px; color:#fff; font-weight:bold; display:block; margin-bottom:4px; text-align:center;">Simulating Water Physics...</label>
+        <progress id="erosionProgress" value="0" max="100" style="width: 100%; height: 8px;"></progress>
+    </div>
 
     <h3>Noise Settings</h3>
     <div class="control-group"><label>Cell Size (Res) <span id="v-cellSize">4px</span></label><input type="range" id="cellSize" min="1" max="20" value="4"></div>
@@ -51,7 +102,7 @@
     <div class="control-group"><label style="color:#ef9a9a">Shadow Acne Fix (Bias) <span id="v-shadowBias">0.01</span></label><input type="range" id="shadowBias" min="0.0" max="0.05" step="0.001" value="0.01"></div>
     <div class="control-group"><label style="color:#80cbc4">Diffuse Smoothing <span id="v-diffuseSmooth">2</span></label><input type="range" id="diffuseSmooth" min="1" max="10" step="1" value="2"></div>
     <label class="checkbox-group"><input type="checkbox" id="waterShadows" checked> Soft Shadows on Water</label>
-    <label class="checkbox-group"><input type="checkbox" id="orbitSun" checked> Orbit Sun (Animation)</label>
+    <label class="checkbox-group"><input type="checkbox" id="orbitSun" > Orbit Sun (Animation)</label>
 
     <h3>Biome Thresholds</h3>
     <div class="control-group"><label style="color:#42a5f5">Deep Water <span id="v-deepWater">20%</span></label><input type="range" id="deepWater" min="0" max="1" step="0.01" value="0.20"></div>
@@ -61,11 +112,63 @@
     <div class="control-group"><label style="color:#66bb6a">Forest <span id="v-forest">75%</span></label><input type="range" id="forest" min="0" max="1" step="0.01" value="0.75"></div>
     <div class="control-group"><label style="color:#bdbdbd">Rock <span id="v-rock">90%</span></label><input type="range" id="rock" min="0" max="1" step="0.01" value="0.90"></div>
 
+    <h3>Town Generation</h3>
+    <label class="checkbox-group" style="margin-bottom: 6px;"><input type="checkbox" id="showTowns" checked onchange="forceRender()"> Display Towns Overlay</label>
+    <label class="checkbox-group" style="margin-bottom: 6px;"><input type="checkbox" id="flatten" checked onchange="forceRender()"> Flatten Around towns</label>
+
+    <div class="control-group">
+      <label style="color:#ffcc80">Town Render Style</label>
+      <select id="townRenderStyle" onchange="forceRender()" style="width:100%;background:#333;color:#fff;border:1px solid #555;border-radius:4px;padding:4px;">
+        <option value="city">City Layout</option>
+        <option value="emoji">Emoji + Circle</option>
+      </select>
+    </div>
+
+    <!-- CITY SHAPE & DENSITY CONTROLS -->
+    <div class="control-group"><label style="color:#ffcc80">City Irregularity <span id="v-townIrregularity">0.5</span></label><input type="range" id="townIrregularity" min="-0.5" max="1.5" step="0.05" value="0.5"></div>
+    <div class="control-group"><label style="color:#ffcc80">Building Margin (Spacing) <span id="v-buildingSpacing">2</span></label><input type="range" id="buildingSpacing" min="0" max="5" step="1" value="2"></div>
+    <div class="control-group"><label style="color:#ffcc80">Density Decline Rate <span id="v-densityDecline">0.85</span></label><input type="range" id="densityDecline" min="0" max="2" step="0.05" value="0.85"></div>
+
+    <div class="control-group"><label style="color:#ffcc80">Target Town Count <span id="v-townCount">35</span></label><input type="range" id="townCount" min="1" max="100" step="1" value="70"></div>
+    <div class="control-group"><label style="color:#ffcc80">Town Spacing (Dist) <span id="v-townSpacing">70</span></label><input type="range" id="townSpacing" min="10" max="300" step="5" value="50"></div>
+    
+    <div class="control-group">
+        <label style="color:#ffcc80">Town Size (Min - Max) <span id="v-townSizeStr">30 - 80</span></label>
+        <div style="display:flex; gap:5px;">
+            <input type="range" id="townSizeMin" min="2" max="100" step="1" value="30">
+            <input type="range" id="townSizeMax" min="2" max="200" step="1" value="80">
+        </div>
+    </div>
+
+    <div class="control-group"><label style="color:#ffcc80">Max Slope (Flatness) <span id="v-townMaxSlope">0.09</span></label><input type="range" id="townMaxSlope" min="0.01" max="0.2" step="0.01" value="0.09"></div>
+    <div class="control-group"><label style="color:#ffcc80">Shallow Water Bias <span id="v-shallowWaterBais">+7%</span></label><input type="range" id="shallowWaterBais" min="-10" max="30" step="1" value="7"></div>
+    <button class="btn-seed" onclick="generateTowns()" style="background:#d35400; padding: 8px; margin-top:4px;">🏘️ Generate Towns</button>
+    
+    <h3>Pathfinding & Roads</h3>
+    <label class="checkbox-group" style="margin-bottom: 6px;"><input type="checkbox" id="showRoads" checked onchange="forceRender()"> Display Roads</label>
+    <label class="checkbox-group" style="margin-bottom: 6px;"><input type="checkbox" id="curveRoads" onchange="forceRender()"> Curve Roads</label>
+    
+    <div class="control-group"><label style="color:#a1887f">Road Color</label><input type="color" id="roadColor" value="#696969" style="width: 100%; height: 20px; padding: 0; border: none; cursor: pointer;"></div>
+    <div class="control-group"><label style="color:#a1887f">Road Opacity <span id="v-roadOpacity">60%</span></label><input type="range" id="roadOpacity" min="0" max="1" step="0.05" value="0.6"></div>
+    <div class="control-group"><label style="color:#a1887f">Road Thickness <span id="v-roadThickness">1px</span></label><input type="range" id="roadThickness" min="1" max="5" step="0.5" value="1"></div>
+    <div class="control-group"><label style="color:#a1887f">Steepness Penalty <span id="v-roadSteepness">50</span></label><input type="range" id="roadSteepness" min="0" max="200" step="1" value="50"></div>
+    <div class="control-group"><label style="color:#a1887f">Road index step <span id="v-roadStep">1</span></label><input type="range" id="roadStep" min="1" max="10" step="1" value="1"></div>
+    
+    <button class="btn-seed" id="btnGenerateRoads" onclick="generateRoads()" style="background:#795548; padding: 8px; margin-top:4px;">🛣️ Generate Road Network</button>
+    <div id="roadProgressContainer" style="display:none; margin-top: 10px; background:rgba(0,0,0,0.5); padding:8px; border-radius:4px; border:1px solid #444;">
+        <label style="font-size:11px; color:#fff; font-weight:bold; display:block; margin-bottom:4px; text-align:center;" id="roadStatusText">Finding Paths...</label>
+        <progress id="roadProgress" value="0" max="100" style="width: 100%; height: 8px;"></progress>
+    </div>
+
     <h3>Render Mode</h3>
     <label class="checkbox-group"><input type="checkbox" id="smoothGradients" checked> Smooth Gradients</label>
     <label class="checkbox-group"><input type="checkbox" id="animate"> Animate Terrain Z-Axis</label>
     <label class="checkbox-group"><input type="checkbox" id="islandify"> Islandify</label>
-
+    
+    <div class="btn-row" style="margin-top: 10px;">
+      <button class="btn-seed" onclick="downloadMap()" style="background:#4b6584; margin-top:0;">📥 Download Map</button>
+      <button class="btn-seed" onclick="uploadMap()" style="background:#3867d6; margin-top:0;">📤 Upload Map</button>
+    </div>
     <div class="btn-row">
       <button class="btn-save" id="saveBtn" onclick="saveSettings()">Save Settings</button>
       <button class="btn-reset" onclick="resetSettings()">Reset</button>
